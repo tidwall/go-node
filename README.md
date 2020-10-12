@@ -1,5 +1,7 @@
 # go-node
 
+[![GoDoc](https://godoc.org/github.com/tidwall/go-node?status.svg)](https://godoc.org/github.com/tidwall/go-node)
+
 Run Javascript in Go using Node.js.
 
 ## Installing
