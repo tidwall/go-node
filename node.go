@@ -20,6 +20,16 @@ import (
 	"sync/atomic"
 )
 
+// ErrThrown is returned where the input script from Run() throws a Javascript
+// error.
+type ErrThrown struct {
+	err error
+}
+
+func (err ErrThrown) Error() string {
+	return err.err.Error()
+}
+
 // VM is a Javascript Virtual Machine running on Node.js
 type VM interface {
 	Run(javascript string) Value
@@ -136,7 +146,7 @@ func New(opts *Options) VM {
 				if emsg != "" {
 					return errors.New(emsg)
 				}
-				return errors.New("node runtime failed to start")
+				return errors.New("runtime failed to initiate")
 			}
 			return err
 		}
@@ -199,7 +209,7 @@ func New(opts *Options) VM {
 			}
 			if _, err := conn.Write(buf); err != nil {
 				for _, v := range vals {
-					v.err = fmt.Errorf("vm runtime: %s", err)
+					v.err = err
 					v.wg.Done()
 					v.vm = nil // release the vm
 				}
@@ -208,15 +218,15 @@ func New(opts *Options) VM {
 					var msg string
 					data, err := rd.ReadBytes('\n')
 					if err != nil {
-						v.err = fmt.Errorf("vm runtime: %s", err)
+						v.err = err
 					} else if err := json.Unmarshal(data, &msg); err != nil {
-						v.err = fmt.Errorf("vm runtime: %s", err)
+						v.err = err
 					} else if msg != "" && msg[0] == 'e' {
-						v.err = fmt.Errorf("vm runtime: %s", msg[1:])
+						v.err = ErrThrown{fmt.Errorf("%s", msg[1:])}
 					} else if msg != "" && msg[0] == 'v' {
 						v.ret = string(msg[1:])
 					} else {
-						v.err = errors.New("vm runtime: invalid response")
+						v.err = errors.New("invalid response")
 					}
 					v.wg.Done()
 					v.vm = nil // release the vm

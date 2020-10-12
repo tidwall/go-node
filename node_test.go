@@ -19,7 +19,6 @@ func TestNode(t *testing.T) {
 				ch <- true
 			}
 		},
-		// Flags: []string{"--heap-prof"},
 	})
 	vm.Run("x=0")
 	N := 100
@@ -41,4 +40,17 @@ func TestNode(t *testing.T) {
 	}
 	vm.Run("emit(100)")
 	<-ch
+
+	v := vm.Run("throw new Error('hello')")
+	if v.Error() == nil {
+		t.Fatal("expected an error")
+	}
+	err, ok := v.Error().(ErrThrown)
+	if !ok {
+		t.Fatal("expected an ErrThrown")
+	}
+	if err.Error() != "Error: hello" {
+		t.Fatalf("expected '%s', got '%s'", "Error: hello", err.Error())
+	}
+
 }
