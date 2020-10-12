@@ -195,11 +195,13 @@ func New(opts *Options) VM {
 				data, _ := json.Marshal(v.js)
 				buf = append(buf, data...)
 				buf = append(buf, '\n')
+				v.js = "" // release the script
 			}
 			if _, err := conn.Write(buf); err != nil {
 				for _, v := range vals {
 					v.err = fmt.Errorf("vm runtime: %s", err)
 					v.wg.Done()
+					v.vm = nil // release the vm
 				}
 			} else {
 				for _, v := range vals {
@@ -217,6 +219,7 @@ func New(opts *Options) VM {
 						v.err = errors.New("vm runtime: invalid response")
 					}
 					v.wg.Done()
+					v.vm = nil // release the vm
 				}
 			}
 		}
@@ -248,14 +251,16 @@ type jsVM struct {
 
 // Run some Javascript code. Returns the JSON or an error.
 func (vm *jsVM) Run(js string) Value {
-	val := new(jsValue)
-	val.js = js
-	val.wg.Add(1)
-	vm.ch <- val
-	return val
+	v := new(jsValue)
+	v.vm = vm
+	v.js = js
+	v.wg.Add(1)
+	vm.ch <- v
+	return v
 }
 
 type jsValue struct {
+	vm  *jsVM
 	js  string
 	wg  sync.WaitGroup
 	ret string
