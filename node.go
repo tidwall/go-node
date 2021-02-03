@@ -47,6 +47,12 @@ type Value interface {
 type Options struct {
 	// OnEmit is an optional callback that handles emitted messages.
 	OnEmit func(thing string)
+	// OnConsoleLog is an optional callback that handles notice messages that
+	// are intended for the console logger.
+	OnLog func(msg string)
+	// OnConsoleError is an optional callback that handles error messages that
+	// are intended for the console logger.
+	OnError func(msg string)
 	// Dir is the working directory for the VM. Default is the same working
 	// directory and currently running Go process.
 	Dir string
@@ -59,10 +65,14 @@ type Options struct {
 // Node.js.
 func New(opts *Options) VM {
 	emit := func(thing string) {}
+	var onError func(msg string)
+	var onLog func(msg string)
 	flags := []string{"--title", "go-node", "-e", jsRuntime}
 	if opts != nil {
 		emit = opts.OnEmit
 		flags = append(flags, opts.Flags...)
+		onError = opts.OnError
+		onLog = opts.OnLog
 	}
 	cmd := exec.Command("node", flags...)
 	if opts != nil && opts.Dir != "" {
@@ -90,7 +100,11 @@ func New(opts *Options) VM {
 			}
 			emsgmu.Lock()
 			if emsgready {
-				os.Stderr.Write(line)
+				if onError != nil {
+					onError(string(line[:len(line)-1]))
+				} else {
+					os.Stderr.Write(line)
+				}
 			} else {
 				emsg += string(line)
 			}
@@ -108,7 +122,11 @@ func New(opts *Options) VM {
 			if strings.HasPrefix(string(line), token) {
 				emit(string(line[len(token) : len(line)-1]))
 			} else {
-				os.Stdout.Write(line)
+				if onLog != nil {
+					onLog(string(line[:len(line)-1]))
+				} else {
+					os.Stdout.Write(line)
+				}
 			}
 		}
 	}()
